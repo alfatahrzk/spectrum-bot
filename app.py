@@ -105,6 +105,7 @@ def get_agent():
         3. Jika alat error/kosong, katakan jujur ke user.
         4. Jawab singkat dan ramah.
         """),
+        MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{input}"),
         MessagesPlaceholder(variable_name="agent_scratchpad"),
     ])
