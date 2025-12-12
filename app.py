@@ -128,14 +128,14 @@ if user_input:
     st.chat_message("user").write(user_input)
     st.session_state.chat_history.append(HumanMessage(content=user_input))
 
-    # 2. Bot Mikir & Nggolek Data
+    # 2. Bot Mikir
     with st.chat_message("assistant"):
         with st.spinner("Sedang mengecek data..."):
             try:
-                # Invoke Agent
+                # Invoke Agent kanthi MEMORY
                 response = agent_executor.invoke({
                     "input": user_input,
-                    # Kita bisa pass history juga kalo mau (opsional untuk simple agent)
+                    "chat_history": st.session_state.chat_history # <--- KIRIM SANGU MEMORI
                 })
                 bot_reply = response["output"]
                 st.write(bot_reply)
