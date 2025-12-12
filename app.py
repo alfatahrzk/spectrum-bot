@@ -29,17 +29,23 @@ except Exception as e:
 @tool
 def cari_produk(query: str):
     """
-    Gunakan alat ini untuk mencari informasi harga, deskripsi, atau jenis layanan percetakan.
-    Input: Kata kunci produk (misal: 'banner', 'kartu nama', 'brosur').
+    Gunakan alat ini untuk mencari informasi harga, deskripsi, atau daftar layanan.
+    Input: Kata kunci produk (misal: 'banner', 'kartu nama') atau 'semua' untuk lihat semua daftar.
     """
     try:
-        # Cari di kolom 'nama_produk' (Case insensitive)
-        response = supabase.table('products').select("*")\
-            .ilike('nama_produk', f'%{query}%').execute()
+        # Logika Pinter: Nek query-ne umum, tampilno kabeh/sample
+        query_lower = query.lower()
+        if query_lower in ["semua", "produk", "apa aja", "list", "menu", "layanan"]:
+            # Jupuk 10 produk pertama
+            response = supabase.table('products').select("*").limit(10).execute()
+        else:
+            # Cari spesifik (ilike)
+            response = supabase.table('products').select("*")\
+                .ilike('nama_produk', f'%{query}%').execute()
         
         data = response.data
         if not data:
-            return "Maaf, produk tidak ditemukan di katalog kami."
+            return "Maaf, produk yang dicari tidak ditemukan di katalog kami."
         
         hasil_teks = ""
         for item in data:
