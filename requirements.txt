@@ -1,0 +1,7 @@
+streamlit
+langchain==0.2.14
+langchain-community==0.2.12
+langchain-core==0.2.33
+langchain-groq==0.1.9
+supabase
+python-dotenv
