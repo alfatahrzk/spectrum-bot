@@ -104,8 +104,13 @@ def get_agent():
     ])
 
     agent = create_tool_calling_agent(llm, tools, prompt)
-    return AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=3)
-
+    return AgentExecutor(
+        agent=agent, 
+        tools=tools, 
+        verbose=True, 
+        max_iterations=3, 
+        handle_parsing_errors=True
+    )
 agent_executor = get_agent()
 
 # --- 6. INPUT CHAT USER ---
