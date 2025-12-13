@@ -119,7 +119,7 @@ tools = [cari_produk, cek_status_order, buat_pesanan]
 # --- 3. LOGIKA AGEN TELEGRAM ---
 user_sessions = {}
 
-def get_agent_executor(chat_id,, model_type):
+def get_agent_executor(chat_id, model_type):
     if model_type == "Google Gemini Flash":
         # Otak 1: Gemini (Gratis & Banter)
         llm = ChatGoogleGenerativeAI(
