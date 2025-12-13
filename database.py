@@ -50,7 +50,7 @@ class DatabaseManager:
 
     # -- Admin Methods --
     def get_all_orders(self):
-        return self.client.table('orders').select("*").order('created_at', desc=True).execute()
+        return self.client.table('orders').select("*").order('id', desc=True).execute()
 
     def update_order_status(self, nomor_order, status_baru):
         return self.client.table('orders').update({"status_order": status_baru}).eq("nomor_order", nomor_order).execute()
