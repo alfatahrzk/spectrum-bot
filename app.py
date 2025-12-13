@@ -6,6 +6,7 @@ from langchain_core.tools import tool
 from langchain_core.messages import AIMessage, HumanMessage
 from supabase import create_client, Client
 import os
+import datetime 
 
 # --- 1. KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="Spectrum Assistant", page_icon="🖨️")
@@ -55,25 +56,62 @@ def cari_produk(query: str):
         return f"Error database: {e}"
 
 @tool
-def cek_status_order(nomor_resi: str):
+def buat_pesanan(nama_pelanggan: str, item: str, detail: str):
     """
-    Gunakan alat ini untuk mengecek status pesanan berdasarkan nomor resi.
-    Input: Nomor resi (contoh: 'SPC-001').
+    Gunakan alat ini HANYA jika user sudah SETUJU/CONFIRM untuk memesan barang.
+    Input:
+    - nama_pelanggan: Nama user.
+    - item: Barang yang dipesan.
+    - detail: Detail tambahan.
+    """
+    # GENERATE NOMOR ORDER (ORDER-YYMMDDHHMMSS)
+    # %y=Tahun(2 digit), %m=Bulan, %d=Tanggal, %H=Jam, %M=Menit, %S=Detik
+    now = datetime.datetime.now()
+    nomor_order = f"ORDER-{now.strftime('%y%m%d%H%M%S')}"
+    
+    try:
+        # Insert ke DB 
+        supabase.table('orders').insert({
+           "nomor_order": nomor_order, 
+           "nama_pelanggan": nama_pelanggan, 
+           "status_order": "Menunggu Pembayaran",
+           "total_biaya": 0
+        }).execute()
+        
+        pesan_sukses = f"""
+        ✅ Pesanan Berhasil Dibuat!
+        - Nomor Order: {nomor_order}
+        - Atas Nama: {nama_pelanggan}
+        - Item: {item}
+        
+        Silakan lakukan pembayaran ke BCA 123-456-7890.
+        Simpan Nomor Order ini untuk cek status.
+        """
+        return pesan_sukses
+
+    except Exception as e:
+        return f"Gagal membuat pesanan: {e}"
+
+@tool
+def cek_status_order(nomor_order: str):
+    """
+    Gunakan alat ini untuk mengecek status pesanan berdasarkan NOMOR ORDER.
+    Input: Nomor Order (contoh: 'ORDER-251213...').
     """
     try:
         response = supabase.table('orders').select("*")\
-            .eq('nomor_resi', nomor_resi).execute()
+            .eq('nomor_order', nomor_order).execute()
         
         data = response.data
         if not data:
-            return "Nomor resi tidak ditemukan. Mohon cek kembali."
+            return f"Nomor Order '{nomor_order}' tidak ditemukan. Mohon cek kembali."
         
         order = data[0]
-        return f"Status Order {order['nomor_resi']} ({order['nama_pelanggan']}): {order['status_order']}. Total: Rp{order['total_biaya']}."
+        return f"Status Order {order['nomor_resi']} ({order['nama_pelanggan']}): {order['status_order']}."
     except Exception as e:
         return f"Error database: {e}"
 
-tools = [cari_produk, cek_status_order]
+tools = [cari_produk, cek_status_order, buat_pesanan]
 
 # --- 4. MEMORY & SESSION STATE ---
 if "chat_history" not in st.session_state:
@@ -99,11 +137,15 @@ def get_agent():
     prompt = ChatPromptTemplate.from_messages([
         ("system", """
         Kamu adalah 'SpectrumBot', CS Spectrum Digital Printing.
-        ATURAN:
-        1. Gunakan 'cari_produk' untuk cek harga.
-        2. Gunakan 'cek_status_order' untuk cek resi.
-        3. Jika alat error/kosong, katakan jujur ke user.
-        4. Jawab singkat dan ramah.
+        
+        ATURAN MUTLAK:
+        1. Gunakan 'cari_produk' untuk cek harga/layanan.
+        2. Gunakan 'cek_status_order' untuk cek STATUS ORDER.
+        3. Jika user BILANG "MAU PESAN" atau "DEAL", GUNAKAN tool 'buat_pesanan'.
+           - Tanyakan nama user dulu jika belum tahu.
+        4. Jika user tanya "jual apa aja", panggil 'cari_produk' dengan input "semua".
+        5. Gunakan istilah "Nomor Order" (bukan Resi/Antrian).
+        6. Jawab dalam Bahasa Indonesia yang ramah dan singkat.
         """),
         MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{input}"),
