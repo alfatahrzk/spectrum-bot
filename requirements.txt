@@ -1,5 +1,5 @@
 streamlit
-python-telegram-bot
+python-telegram-bot>=20.0
 nest_asyncio
 langchain==0.2.14
 langchain-community==0.2.12

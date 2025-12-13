@@ -100,20 +100,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Error: {e}")
 
 async def start_bot():
-    """Fungsi Utama Bot Telegram"""
+    """Fungsi Utama Bot Telegram (Fixed Version)"""
+    # 1. Build Aplikasi
     application = ApplicationBuilder().token(telegram_token).build()
+    
+    # 2. Tambah Handler
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
     
-    # KUNCI RAHASIA: Allow nested loop di Streamlit
+    # 3. KUNCI RAHASIA: Allow nested loop
     nest_asyncio.apply()
     
-    # Jalankan polling
-    await application.updater.start_polling()
-    await application.start()
+    # --- BAGIAN IKI SING DIBENERNO ---
+    print("🔄 Melakukan inisialisasi...")
+    await application.initialize() # <--- PEMANASAN DISIK
+    await application.start()      # <--- NYALAKNO MESIN
+    
+    print("🚀 Mulai Polling (Narik Pesan)...")
+    await application.updater.start_polling() # <--- LAGI MLAYU
     
     # Trik ben gak mandheg (Infinite Wait)
+    print("✅ Bot Telegram Berjalan! (Jangan tutup tab ini)")
     while True:
-        await asyncio.sleep(3600)
+        await asyncio.sleep(3600) # Turu sedilut tapi melek terus
 
 # --- 4. TAMPILAN STREAMLIT (FAKE UI) ---
 st.title("🤖 Spectrum Telegram Bot Server")
