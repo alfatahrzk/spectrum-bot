@@ -31,8 +31,11 @@ except Exception as e:
 @tool
 def cari_produk(query: str):
     """
-    Gunakan alat ini untuk mencari informasi harga, deskripsi, atau daftar layanan.
-    Input: Kata kunci produk (misal: 'banner', 'kartu nama') atau 'semua' untuk lihat semua daftar.
+    PRIORITAS UTAMA. Gunakan alat ini HANYA jika user bertanya tentang:
+    - HARGA / BIAYA cetak.
+    - BAHAN / SPESIFIKASI produk (kertas, ukuran, jenis).
+    - KETERSEDIAAN barang.
+    Input: Nama produk (contoh: 'banner', 'kartu nama', 'stiker').
     """
     try:
         # Logika Pinter: Nek query-ne umum, tampilno kabeh/sample
@@ -51,7 +54,48 @@ def cari_produk(query: str):
         
         hasil_teks = ""
         for item in data:
-            hasil_teks += f"- {item['nama_produk']}: Rp{item['harga_satuan']} per {item['satuan']}. ({item['deskripsi']})\n"
+            harga_format = "{:,}".format(item['harga_satuan']).replace(',', '.')
+            
+            # Cek nek kolom bahan kosong, strip (-) ae
+            bahan_info = item.get('bahan', '-') 
+            
+            hasil_teks += f"- {item['nama_produk']}: Rp{harga_format} /{item['satuan']}. (Spec: {bahan_info})\n"
+        return hasil_teks
+    except Exception as e:
+        return f"Error database: {e}"
+
+@tool
+def cari_info_umum(query: str):
+    """
+    Gunakan alat ini jika user bertanya tentang INFORMASI TOKO (NON-PRODUK).
+    Topik meliputi:
+    - Jam Buka / Operasional / Libur.
+    - Alamat / Lokasi / Map.
+    - Cara Kirim File / Format File / Email.
+    - Nomor Rekening / Cara Bayar / DP.
+    - Pengiriman / Ekspedisi.
+    Input: Kata kunci topik (contoh: 'jam buka', 'rekening', 'email').
+    """
+    try:
+        # Cari pertanyaan sing mirip-mirip (ilike)
+        response = supabase.table('faq').select("*")\
+            .ilike('pertanyaan', f'%{query}%').execute()
+        
+        data = response.data
+        
+        # Nek gak nemu spesifik, coba cari sing luwih umum (opsional)
+        if not data:
+             # Jupuk kabeh FAQ ben LLM milih dewe (limit 5 ae ben gak boros token)
+             response = supabase.table('faq').select("*").limit(5).execute()
+             data = response.data
+
+        if not data:
+            return "Maaf, informasi tersebut tidak ditemukan di FAQ kami."
+        
+        hasil_teks = ""
+        for item in data:
+            hasil_teks += f"Q: {item['pertanyaan']}\nA: {item['jawaban']}\n---\n"
+            
         return hasil_teks
     except Exception as e:
         return f"Error database: {e}"
@@ -115,7 +159,7 @@ def cek_status_order(nomor_order: str):
     except Exception as e:
         return f"Error database: {e}"
 
-tools = [cari_produk, cek_status_order, buat_pesanan]
+tools = [cari_produk, cek_status_order, buat_pesanan, cari_info_umum]
 
 # --- 3. LOGIKA AGEN TELEGRAM ---
 user_sessions = {}
@@ -152,6 +196,7 @@ def get_agent_executor(chat_id, model_type):
               - Jelaskan spesifikasi bahan.
               - HITUNG TOTAL HARGA (Harga Satuan x Jumlah).
               - Tanyakan: "Ada tambahan lain, Kak?"
+           4. Jika tanya INFO UMUM (Jam buka, Lokasi, File, Rekening) -> Gunakan 'cari_info_umum'.
         
         PHASE 2: SAAT USER BILANG SETUJU / "GASS" / DEAL
            1. CEK DULU: Apakah user sudah menyebutkan namanya di chat sebelumnya?
@@ -163,8 +208,10 @@ def get_agent_executor(chat_id, model_type):
               - Langsung panggil tool 'buat_pesanan'.
         
         PHASE 3: LAIN-LAIN
-           - Gunakan tool 'cek_status_order' untuk cek resi.
+           - Gunakan tool 'cek_status_order' untuk cek order.
+           - JANGAN ngarang info toko. Cek tool 'cari_info_umum' dulu.
            - Gunakan istilah "Nomor Order".
+           - Jika user cuma ketik nama barang (misal: "Poster") -> ASUMSIKAN user ingin beli, gunakan 'cari_produk'.
            - Jawab dengan luwes, tidak kaku, layaknya manusia.
            - DILARANG KERAS mengarang/membuat sendiri Nomor Order (ORDER-xxxx).
            - Nomor Order HANYA boleh disebut jika kamu sudah menerima output dari tool 'buat_pesanan'.
