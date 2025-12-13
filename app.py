@@ -185,8 +185,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     if chat_id not in user_sessions: user_sessions[chat_id] = []
     
+    # Reset command
+    if text == "/reset":
+        user_sessions[chat_id] = []
+        await update.message.reply_text("🧠 Memori direset.")
+        return
+
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
     
+    # Pake model sing dipilih nang Dropdown (Global Var)
     agent = get_agent_executor(chat_id, model_type=CURRENT_MODEL)
     
     history = user_sessions[chat_id]
@@ -201,52 +208,42 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Error ({CURRENT_MODEL}): {e}")
 
 async def start_bot():
-    """Fungsi Utama Bot Telegram (Fixed Version)"""
-    # 1. Build Aplikasi
+    """Fungsi Utama Bot Telegram"""
     application = ApplicationBuilder().token(telegram_token).build()
-    
-    # 2. Tambah Handler
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-    
-    # 3. KUNCI RAHASIA: Allow nested loop
     nest_asyncio.apply()
     
-    # --- BAGIAN IKI SING DIBENERNO ---
-    print("🔄 Melakukan inisialisasi...")
-    await application.initialize() # <--- PEMANASAN DISIK
-    await application.start()      # <--- NYALAKNO MESIN
+    print("🔄 Inisialisasi...")
+    await application.initialize()
+    await application.start()
     
-    print("🚀 Mulai Polling (Narik Pesan)...")
-    await application.updater.start_polling() # <--- LAGI MLAYU
+    print("🚀 Mulai Polling...")
+    # PERBAIKAN: Hapus 'await' ing kene!
+    await application.updater.start_polling(drop_pending_updates=True) 
     
-    # Trik ben gak mandheg (Infinite Wait)
-    print("✅ Bot Telegram Berjalan! (Jangan tutup tab ini)")
+    print("✅ Bot Berjalan!")
     while True:
-        await asyncio.sleep(3600) # Turu sedilut tapi melek terus
+        await asyncio.sleep(3600)
 
 # --- 4. TAMPILAN STREAMLIT (FAKE UI) ---
 # --- TAMPILAN UI ---
-st.title("🤖 Spectrum Bot Server Controller")
+st.title("🤖 Spectrum Bot Controller")
 
-# 1. PILIH OTAK (Dropdown)
+# Dropdown Pemilih Otak
 pilihan_model = st.selectbox(
     "Pilih Otak Bot:",
     ("Groq Llama 3", "Google Gemini Flash"),
     index=0
 )
-st.caption(f"Model sing dipilih: **{pilihan_model}**")
+st.caption(f"Status: Menggunakan **{pilihan_model}**")
 
-# Update variabel global sadurunge bot mlaku
+# Update Global Variable
 CURRENT_MODEL = pilihan_model 
 
 st.write("---")
 
-# 2. TOMBOL START
 if st.button("Jalankan Bot Telegram"):
-    st.info(f"🚀 Menjalankan Bot menggunakan mesin: {CURRENT_MODEL}...")
-    
-    # Kunci pilihan model menyang global variable maneh (ben yakin)
+    st.info(f"🚀 Menjalankan Bot dengan mesin: {CURRENT_MODEL}...")
     CURRENT_MODEL = pilihan_model 
-    
     with st.spinner("Bot sedang aktif..."):
         asyncio.run(start_bot())
