@@ -271,7 +271,7 @@ async def start_bot():
     
     print("🚀 Mulai Polling...")
     # PERBAIKAN: Hapus 'await' ing kene!
-    await application.updater.start_polling(drop_pending_updates=True) 
+    application.updater.start_polling(drop_pending_updates=True)
     
     print("✅ Bot Berjalan!")
     while True:
