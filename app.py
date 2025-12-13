@@ -107,7 +107,7 @@ def cari_info_umum(query: str):
 
     except Exception as e:
         return f"Error Qdrant: {e}"
-        
+
 @tool
 def buat_pesanan(nama_pelanggan: str, item: str, detail: str):
     """
@@ -194,6 +194,17 @@ def get_agent_executor(chat_id, model_type):
         
         KAMUS BAHASA GAUL (PENTING):
         - Jika user bilang: "gass", "sikat", "bungkus", "lanjut", "kuy", "ok", "y", "mau" -> ARTINYA ADALAH "SETUJU/DEAL".
+
+        INFORMASI UMUM:
+        - Nama Toko: Spectrum Digital Printing
+        - Alamat: Ruko Manyar Garden Regency No. 27, Jl. Nginden Semolo No.101, Menur Pumpungan, Kec. Sukolilo,
+        - Nomor Telepon: (031) 5998267
+        - Rekening Bank: BCA 123-456-7890 a.n. Spectrum
+        - Media Sosial: Instagram @spectrumprinting, Facebook Spectrum Digital Printing
+        - Website: www.spectrumprinting.id
+        - Waktu Operasional: Setiap Hari, 06.30 - 24.00 WIB
+        - No. WhatsApp: 0812-3456-7890
+        - Melayani pemesanan cetak online dan offline dengan pengiriman ke seluruh Indonesia.
         
         SOP PELAYANAN (WAJIB DIPATUHI SECARA BERURUTAN):
         
