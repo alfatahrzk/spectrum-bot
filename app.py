@@ -177,7 +177,7 @@ def get_agent_executor(chat_id, model_type):
         # Iso ganti 70b dadi 8b nek pengen irit
         llm = ChatGroq(
             temperature=0, 
-            model_name="llama-3.1-8b-instant", 
+            model_name="llama-3.3-70b-versatile", 
             groq_api_key=st.secrets["GROQ_API_KEY"]
         )
     prompt = ChatPromptTemplate.from_messages([
