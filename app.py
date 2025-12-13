@@ -124,7 +124,7 @@ def get_agent_executor(chat_id, model_type):
     if model_type == "Google Gemini Flash":
         # Otak 1: Gemini (Gratis & Banter)
         llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash-lite",
             temperature=0,
             google_api_key=st.secrets["GOOGLE_API_KEY"]
         )
