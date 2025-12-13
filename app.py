@@ -28,41 +28,90 @@ except Exception as e:
 # --- 2. DEFINISI TOOLS (SAMA PERSIS) ---
 @tool
 def cari_produk(query: str):
-    """Cari info produk."""
+    """
+    Gunakan alat ini untuk mencari informasi harga, deskripsi, atau daftar layanan.
+    Input: Kata kunci produk (misal: 'banner', 'kartu nama') atau 'semua' untuk lihat semua daftar.
+    """
     try:
-        if query.lower() in ["semua", "produk", "apa aja", "list"]:
+        # Logika Pinter: Nek query-ne umum, tampilno kabeh/sample
+        query_lower = query.lower()
+        if query_lower in ["semua", "produk", "apa aja", "list", "menu", "layanan"]:
+            # Jupuk 10 produk pertama
             response = supabase.table('products').select("*").limit(10).execute()
         else:
-            response = supabase.table('products').select("*").ilike('nama_produk', f'%{query}%').execute()
+            # Cari spesifik (ilike)
+            response = supabase.table('products').select("*")\
+                .ilike('nama_produk', f'%{query}%').execute()
+        
         data = response.data
-        if not data: return "Produk tidak ditemukan."
-        res = ""
+        if not data:
+            return "Maaf, produk yang dicari tidak ditemukan di katalog kami."
+        
+        hasil_teks = ""
         for item in data:
-            res += f"- {item['nama_produk']}: Rp{item['harga_satuan']} ({item['deskripsi']})\n"
-        return res
-    except Exception as e: return f"Error DB: {e}"
+            hasil_teks += f"- {item['nama_produk']}: Rp{item['harga_satuan']} per {item['satuan']}. ({item['deskripsi']})\n"
+        return hasil_teks
+    except Exception as e:
+        return f"Error database: {e}"
 
 @tool
 def buat_pesanan(nama_pelanggan: str, item: str, detail: str):
-    """Buat order."""
+    """
+    Gunakan alat ini HANYA jika user sudah SETUJU/CONFIRM untuk memesan barang.
+    Input:
+    - nama_pelanggan: Nama user.
+    - item: Barang yang dipesan.
+    - detail: Detail tambahan.
+    """
+    # 1. Generate Nomor Order
     now = datetime.datetime.now()
     nomor_order = f"ORDER-{now.strftime('%y%m%d%H%M%S')}"
+    
     try:
-        data_insert = {"nomor_order": nomor_order, "nama_pelanggan": nama_pelanggan, "status_order": "Menunggu Pembayaran", "total_biaya": 0}
+        data_insert = {
+            "nomor_order": nomor_order,      
+            "nama_pelanggan": nama_pelanggan,
+            "status_order": "Menunggu Pembayaran",
+            "total_biaya": 0 
+        }
+        
+        # Eksekusi Insert
         supabase.table('orders').insert(data_insert).execute()
-        return f"✅ Sukses! Order: {nomor_order}. Atas nama {nama_pelanggan}. Silakan transfer ke BCA 123456."
-    except Exception as e: return f"Gagal simpan: {e}"
+        
+        # 3. Gawe Laporan sukses
+        pesan_sukses = f"""
+        ✅ Pesanan Berhasil Disimpan!
+        - Nomor Order: {nomor_order}
+        - Atas Nama: {nama_pelanggan}
+        - Item: {item}
+        - Status: Menunggu Pembayaran
+        
+        Silakan transfer ke BCA 123-456-7890.
+        Ketik "Cek pesanan {nomor_order}" untuk melihat status.
+        """
+        return pesan_sukses
+
+    except Exception as e:
+        return f"Gagal menyimpan ke database: {e}"
 
 @tool
 def cek_status_order(nomor_order: str):
-    """Cek status."""
+    """
+    Gunakan alat ini untuk mengecek status pesanan berdasarkan NOMOR ORDER.
+    Input: Nomor Order (contoh: 'ORDER-251213...').
+    """
     try:
-        response = supabase.table('orders').select("*").eq('nomor_order', nomor_order).execute()
+        response = supabase.table('orders').select("*")\
+            .eq('nomor_order', nomor_order).execute()
+        
         data = response.data
-        if not data: return "Order tidak ditemukan."
-        o = data[0]
-        return f"Status {o['nomor_order']}: {o['status_order']}."
-    except Exception as e: return f"Error DB: {e}"
+        if not data:
+            return f"Nomor Order '{nomor_order}' tidak ditemukan. Mohon cek kembali."
+        
+        order = data[0]
+        return f"Status Order {order['nomor_order']} ({order['nama_pelanggan']}): {order['status_order']}."
+    except Exception as e:
+        return f"Error database: {e}"
 
 tools = [cari_produk, cek_status_order, buat_pesanan]
 
@@ -70,16 +119,54 @@ tools = [cari_produk, cek_status_order, buat_pesanan]
 user_sessions = {}
 
 def get_agent_executor(chat_id):
-    llm = ChatGroq(temperature=0, model_name="llama-3.3-70b-versatile", groq_api_key=groq_api_key)
+    llm = ChatGroq(
+        temperature=0, 
+        model_name="llama-3.3-70b-versatile", 
+        groq_api_key=groq_api_key
+    )
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "Kamu SpectrumBot Telegram. SOP: 1. Cek produk. 2. Hitung total. 3. Deal -> Tanya Nama -> Buat Order. Kamus: 'gass'='setuju'. Jawab singkat."),
+        ("system", """
+        Kamu adalah 'SpectrumBot', Customer Service andalan Spectrum Digital Printing yang cerdas, gaul, tapi tetap sopan.
+        
+        KAMUS BAHASA GAUL (PENTING):
+        - Jika user bilang: "gass", "sikat", "bungkus", "lanjut", "kuy", "ok", "y", "mau" -> ARTINYA ADALAH "SETUJU/DEAL".
+        
+        SOP PELAYANAN (WAJIB DIPATUHI SECARA BERURUTAN):
+        
+        PHASE 1: SAAT USER TANYA HARGA/INGIN PESAN
+           1. WAJIB panggil tool 'cari_produk' dulu.
+           2. Jika produk TIDAK ADA: Katakan "Maaf kami belum melayani cetak [produk itu]." STOP.
+           3. Jika produk ADA: 
+              - Jelaskan spesifikasi bahan.
+              - HITUNG TOTAL HARGA (Harga Satuan x Jumlah).
+              - Tanyakan: "Apakah harganya cocok, Kak?"
+        
+        PHASE 2: SAAT USER BILANG SETUJU / "GASS" / DEAL
+           1. CEK DULU: Apakah user sudah menyebutkan namanya di chat sebelumnya?
+           2. JIKA NAMA BELUM DIKETAHUI:
+              - JANGAN panggil tool 'buat_pesanan'.
+              - TANYA DULU: "Siap Kak! Boleh tahu pesanan ini atas nama siapa?"
+              - STOP, tunggu jawaban user.
+           3. JIKA NAMA SUDAH DIKETAHUI:
+              - Langsung panggil tool 'buat_pesanan'.
+        
+        PHASE 3: LAIN-LAIN
+           - Gunakan tool 'cek_status_order' untuk cek resi.
+           - Gunakan istilah "Nomor Order".
+           - Jawab dengan luwes, tidak kaku, layaknya manusia.
+        """),
         MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{input}"),
         MessagesPlaceholder(variable_name="agent_scratchpad"),
     ])
     agent = create_tool_calling_agent(llm, tools, prompt)
-    return AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
-
+    return AgentExecutor(
+        agent=agent, 
+        tools=tools, 
+        verbose=True, 
+        max_iterations=3, 
+        handle_parsing_errors=True
+    )
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     chat_id = update.effective_chat.id
