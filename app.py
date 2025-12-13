@@ -64,33 +64,36 @@ def buat_pesanan(nama_pelanggan: str, item: str, detail: str):
     - item: Barang yang dipesan.
     - detail: Detail tambahan.
     """
-    # GENERATE NOMOR ORDER (ORDER-YYMMDDHHMMSS)
-    # %y=Tahun(2 digit), %m=Bulan, %d=Tanggal, %H=Jam, %M=Menit, %S=Detik
+    # 1. Generate Nomor Order
     now = datetime.datetime.now()
     nomor_order = f"ORDER-{now.strftime('%y%m%d%H%M%S')}"
     
     try:
-        # Insert ke DB 
-        supabase.table('orders').insert({
-           "nomor_order": nomor_order, 
-           "nama_pelanggan": nama_pelanggan, 
-           "status_order": "Menunggu Pembayaran",
-           "total_biaya": 0
-        }).execute()
+        data_insert = {
+            "nomor_order": nomor_order,      
+            "nama_pelanggan": nama_pelanggan,
+            "status_order": "Menunggu Pembayaran",
+            "total_biaya": 0 
+        }
         
+        # Eksekusi Insert
+        supabase.table('orders').insert(data_insert).execute()
+        
+        # 3. Gawe Laporan sukses
         pesan_sukses = f"""
-        ✅ Pesanan Berhasil Dibuat!
+        ✅ Pesanan Berhasil Disimpan!
         - Nomor Order: {nomor_order}
         - Atas Nama: {nama_pelanggan}
         - Item: {item}
+        - Status: Menunggu Pembayaran
         
-        Silakan lakukan pembayaran ke BCA 123-456-7890.
-        Simpan Nomor Order ini untuk cek status.
+        Silakan transfer ke BCA 123-456-7890.
+        Ketik "Cek pesanan {nomor_order}" untuk melihat status.
         """
         return pesan_sukses
 
     except Exception as e:
-        return f"Gagal membuat pesanan: {e}"
+        return f"Gagal menyimpan ke database: {e}"
 
 @tool
 def cek_status_order(nomor_order: str):
