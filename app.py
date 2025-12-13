@@ -20,6 +20,7 @@ try:
     supabase_url = st.secrets["SUPABASE_URL"]
     supabase_key = st.secrets["SUPABASE_KEY"]
     telegram_token = st.secrets["TELEGRAM_TOKEN"]
+    google_api_key = st.secrets["GOOGLE_API_KEY"]
     
     supabase: Client = create_client(supabase_url, supabase_key)
 except Exception as e:
