@@ -9,6 +9,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import tool
 from langchain_core.messages import AIMessage, HumanMessage
 from supabase import create_client, Client
+from langchain_google_genai import ChatGoogleGenerativeAI
 import datetime
 import os
 
@@ -118,12 +119,22 @@ tools = [cari_produk, cek_status_order, buat_pesanan]
 # --- 3. LOGIKA AGEN TELEGRAM ---
 user_sessions = {}
 
-def get_agent_executor(chat_id):
-    llm = ChatGroq(
-        temperature=0, 
-        model_name="llama-3.3-70b-versatile", 
-        groq_api_key=groq_api_key
-    )
+def get_agent_executor(chat_id,, model_type):
+    if model_type == "Google Gemini Flash":
+        # Otak 1: Gemini (Gratis & Banter)
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            temperature=0,
+            google_api_key=st.secrets["GOOGLE_API_KEY"]
+        )
+    else:
+        # Otak 2: Groq Llama 3 (Default - Pinter Pol)
+        # Iso ganti 70b dadi 8b nek pengen irit
+        llm = ChatGroq(
+            temperature=0, 
+            model_name="llama-3.3-70b-versatile", 
+            groq_api_key=st.secrets["GROQ_API_KEY"]
+        )
     prompt = ChatPromptTemplate.from_messages([
         ("system", """
         Kamu adalah 'SpectrumBot', Customer Service andalan Spectrum Digital Printing yang cerdas, gaul, tapi tetap sopan.
@@ -167,6 +178,8 @@ def get_agent_executor(chat_id):
         max_iterations=3, 
         handle_parsing_errors=True
     )
+CURRENT_MODEL = "Groq Llama 3" 
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     chat_id = update.effective_chat.id
@@ -174,7 +187,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
     
-    agent = get_agent_executor(chat_id)
+    agent = get_agent_executor(chat_id, model_type=CURRENT_MODEL)
+    
     history = user_sessions[chat_id]
     history.append(HumanMessage(content=text))
     
@@ -184,7 +198,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         history.append(AIMessage(content=reply))
         await update.message.reply_text(reply)
     except Exception as e:
-        await update.message.reply_text(f"Error: {e}")
+        await update.message.reply_text(f"Error ({CURRENT_MODEL}): {e}")
 
 async def start_bot():
     """Fungsi Utama Bot Telegram (Fixed Version)"""
@@ -211,11 +225,28 @@ async def start_bot():
         await asyncio.sleep(3600) # Turu sedilut tapi melek terus
 
 # --- 4. TAMPILAN STREAMLIT (FAKE UI) ---
-st.title("🤖 Spectrum Telegram Bot Server")
-st.write("Server sedang berjalan... Jangan tutup tab ini jika ingin bot tetap hidup.")
-st.write("Status: **ONLINE** 🟢")
+# --- TAMPILAN UI ---
+st.title("🤖 Spectrum Bot Server Controller")
 
-# Tombol pemicu (Trigger)
+# 1. PILIH OTAK (Dropdown)
+pilihan_model = st.selectbox(
+    "Pilih Otak Bot:",
+    ("Groq Llama 3", "Google Gemini Flash"),
+    index=0
+)
+st.caption(f"Model sing dipilih: **{pilihan_model}**")
+
+# Update variabel global sadurunge bot mlaku
+CURRENT_MODEL = pilihan_model 
+
+st.write("---")
+
+# 2. TOMBOL START
 if st.button("Jalankan Bot Telegram"):
-    with st.spinner("Bot Telegram sedang aktif..."):
+    st.info(f"🚀 Menjalankan Bot menggunakan mesin: {CURRENT_MODEL}...")
+    
+    # Kunci pilihan model menyang global variable maneh (ben yakin)
+    CURRENT_MODEL = pilihan_model 
+    
+    with st.spinner("Bot sedang aktif..."):
         asyncio.run(start_bot())
