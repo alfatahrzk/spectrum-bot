@@ -8,3 +8,6 @@ langchain-groq==0.1.9
 langchain-google-genai
 supabase
 python-dotenv
+langchain-qdrant
+qdrant-client
+sentence-transformers
