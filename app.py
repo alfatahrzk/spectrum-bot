@@ -147,11 +147,11 @@ def get_agent_executor(chat_id, model_type):
         
         PHASE 1: SAAT USER TANYA HARGA/INGIN PESAN
            1. WAJIB panggil tool 'cari_produk' dulu.
-           2. Jika produk TIDAK ADA: Katakan "Maaf kami belum melayani cetak [produk itu]." STOP.
+           2. Jika produk TIDAK ADA: Katakan "Maaf kami belum melayani cetak [produk itu] Kak." STOP.
            3. Jika produk ADA: 
               - Jelaskan spesifikasi bahan.
               - HITUNG TOTAL HARGA (Harga Satuan x Jumlah).
-              - Tanyakan: "Apakah harganya cocok, Kak?"
+              - Tanyakan: "Ada tambahan lain, Kak?"
         
         PHASE 2: SAAT USER BILANG SETUJU / "GASS" / DEAL
            1. CEK DULU: Apakah user sudah menyebutkan namanya di chat sebelumnya?
@@ -166,6 +166,10 @@ def get_agent_executor(chat_id, model_type):
            - Gunakan tool 'cek_status_order' untuk cek resi.
            - Gunakan istilah "Nomor Order".
            - Jawab dengan luwes, tidak kaku, layaknya manusia.
+           - DILARANG KERAS mengarang/membuat sendiri Nomor Order (ORDER-xxxx).
+           - Nomor Order HANYA boleh disebut jika kamu sudah menerima output dari tool 'buat_pesanan'.
+           - JANGAN bilang "Pesanan sudah dicatat" jika tool 'buat_pesanan' belum sukses dijalankan.
+           - Jika tool error atau belum jalan, katakan: "Sebentar, saya input dulu ya..." lalu panggil toolnya.
         """),
         MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{input}"),
