@@ -17,16 +17,24 @@ class DatabaseManager:
 
     def search_products(self, query: str):
         try:
+            print(f"🔍 [DB] Searching Product: {query}")
+            
             if query.lower() in ["semua", "produk", "list", "menu"]:
-                return self.client.table('products').select("*").limit(10).execute()
+                result = self.client.table('products').select("*").limit(10).execute()
             else:
-                return self.client.table('products').select("*").ilike('nama_produk', f'%{query}%').execute()
-        except Exception: return None
+                result = self.client.table('products').select("*").ilike('nama_produk', f'%{query}%').execute()
+            
+            return result
+        except Exception as e:
+            print(f"❌ ERROR DB (Products): {e}") 
 
     def get_faq_summary(self):
         try:
+            print(f"🔍 [DB] Fetching FAQ...")
             return self.client.table('faq').select("pertanyaan, jawaban").limit(20).execute()
-        except Exception: return None
+        except Exception as e:
+            print(f"❌ ERROR DB (FAQ): {e}")
+            return None
 
     def create_order(self, nama, items, detail, total=0):
         now = datetime.datetime.now()
