@@ -10,6 +10,9 @@ from langchain_core.tools import tool
 from langchain_core.messages import AIMessage, HumanMessage
 from supabase import create_client, Client
 from langchain_google_genai import ChatGoogleGenerativeAI
+from qdrant_client import QdrantClient
+from langchain_qdrant import QdrantVectorStore
+from langchain_huggingface import HuggingFaceEmbeddings
 import datetime
 import os
 
@@ -68,38 +71,43 @@ def cari_produk(query: str):
 def cari_info_umum(query: str):
     """
     Gunakan alat ini jika user bertanya tentang INFORMASI TOKO (NON-PRODUK).
-    Topik meliputi:
-    - Jam Buka / Operasional / Libur.
-    - Alamat / Lokasi / Map.
-    - Cara Kirim File / Format File / Email.
-    - Nomor Rekening / Cara Bayar / DP.
-    - Pengiriman / Ekspedisi.
-    Input: Kata kunci topik (contoh: 'jam buka', 'rekening', 'email').
+    Contoh: Jam Buka, Lokasi, Rekening, Cara Kirim File, Parkir, dll.
     """
+    print(f"🧠 [QDRANT] Mencari konteks untuk: {query}")
     try:
-        # Cari pertanyaan sing mirip-mirip (ilike)
-        response = supabase.table('faq').select("*")\
-            .ilike('pertanyaan', f'%{query}%').execute()
+        # 1. Setup Koneksi Qdrant (Cukup sekali inisialisasi sakjane, tapi kene ben aman)
+        qdrant_url = st.secrets["QDRANT_URL"]
+        qdrant_key = st.secrets["QDRANT_API_KEY"]
         
-        data = response.data
+        # 2. Pake Model Embedding sing Podo karo pas Upload
+        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         
-        # Nek gak nemu spesifik, coba cari sing luwih umum (opsional)
-        if not data:
-             # Jupuk kabeh FAQ ben LLM milih dewe (limit 5 ae ben gak boros token)
-             response = supabase.table('faq').select("*").limit(5).execute()
-             data = response.data
-
-        if not data:
-            return "Maaf, informasi tersebut tidak ditemukan di FAQ kami."
+        # 3. Setup Vector Store
+        vector_store = QdrantVectorStore.from_existing_collection(
+            embedding=embeddings,
+            collection_name="faq_spectrum",
+            url=qdrant_url,
+            api_key=qdrant_key
+        )
         
-        hasil_teks = ""
-        for item in data:
-            hasil_teks += f"Q: {item['pertanyaan']}\nA: {item['jawaban']}\n---\n"
+        # 4. LAKUKAN PENCARIAN (Similarity Search)
+        # Jupuk 3 data sing paling relevan wae (k=3)
+        results = vector_store.similarity_search(query, k=3)
+        
+        if not results:
+            return "Maaf, tidak ditemukan informasi yang relevan di database."
+        
+        # 5. Rangkum Hasile
+        hasil_teks = "INFORMASI RELEVAN DARI DATABASE:\n"
+        for doc in results:
+            hasil_teks += f"{doc.page_content}\n---\n"
             
+        hasil_teks += "\n(GUNAKAN DATA DI ATAS UNTUK MENJAWAB USER)"
         return hasil_teks
-    except Exception as e:
-        return f"Error database: {e}"
 
+    except Exception as e:
+        return f"Error Qdrant: {e}"
+        
 @tool
 def buat_pesanan(nama_pelanggan: str, item: str, detail: str):
     """
