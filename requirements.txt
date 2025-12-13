@@ -6,6 +6,7 @@ langchain-community==0.2.12
 langchain-core==0.2.33
 langchain-groq==0.1.9
 langchain-google-genai
+langchain-huggingface
 supabase
 python-dotenv
 langchain-qdrant
