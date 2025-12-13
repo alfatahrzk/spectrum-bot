@@ -110,7 +110,7 @@ def cek_status_order(nomor_order: str):
             return f"Nomor Order '{nomor_order}' tidak ditemukan. Mohon cek kembali."
         
         order = data[0]
-        return f"Status Order {order['nomor_resi']} ({order['nama_pelanggan']}): {order['status_order']}."
+        return f"Status Order {order['nomor_order']} ({order['nama_pelanggan']}): {order['status_order']}."
     except Exception as e:
         return f"Error database: {e}"
 
