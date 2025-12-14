@@ -4,7 +4,7 @@ from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI, HarmBlockThreshold, HarmCategory
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from tools import bot_tools 
+from tools import bot_tools, set_global_db
 
 class LLMService:
     """Mengelola Model AI (Groq/Gemini) dan Agent."""
@@ -30,14 +30,15 @@ class LLMService:
                 groq_api_key=self.groq_key
             )
 
-    def get_executor(self):
+    def get_executor(self, db_manager_instance):
 
         set_global_db(db_manager_instance)
-        
+
         llm = self._get_llm()
-        
-        prompt = ChatPromptTemplate.from_messages([
-        ("system", """
+
+        from langchain.agents import initialize_agent, AgentType
+
+        SYSTEM_PREFIX = """
         Kamu adalah 'SpectrumBot', Customer Service andalan Spectrum Digital Printing yang cerdas, gaul, tapi tetap sopan.
         
         KAMUS BAHASA GAUL (PENTING):
@@ -84,11 +85,19 @@ class LLMService:
            - Nomor Order HANYA boleh disebut jika kamu sudah menerima output dari tool 'buat_pesanan'.
            - JANGAN bilang "Pesanan sudah dicatat" jika tool 'buat_pesanan' belum sukses dijalankan.
            - Jika tool error atau belum jalan, katakan: "Sebentar, saya input dulu ya..." lalu panggil toolnya.
-        """),
-        MessagesPlaceholder(variable_name="chat_history"),
-        ("human", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad"),
-        ])
-        
-        agent = create_tool_calling_agent(llm, bot_tools, prompt)
-        return AgentExecutor(agent=agent, tools=bot_tools, verbose=True, handle_parsing_errors=True)
+        """
+
+        agent = initialize_agent(
+            tools=bot_tools, 
+            llm=llm,
+            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, 
+            verbose=True,
+            handle_parsing_errors=True,
+            max_iterations=5,
+            # [PENTING]: Masukno SOP sistem menyang agent
+            agent_kwargs={
+                "prefix": SYSTEM_PREFIX
+            }
+        )
+
+        return agent

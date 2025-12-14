@@ -15,17 +15,40 @@ load_dotenv()
 # 🤖 BACKGROUND BOT RUNNER
 # ==========================================
 @st.cache_resource
-def get_db_manager():
-    try:
-        # Kirim st.secrets lan os.environ.get dadi parameter
-        db_instance = DatabaseManager(st_secrets=st.secrets, os_getenv_func=os.environ.get)
-        db_instance.get_all_products() 
-        return db_instance
-    except Exception as e:
-        st.error(f"❌ Gagal konek DB: {e}")
-        st.stop()
+def start_bot_background(db_manager_instance): # <<< TAMBAHI PARAMETER DB MANAGER
+    """
+    Fungsi iki mung dijalanno SEPISAN pas aplikasi start.
+    """
+    token = os.getenv("TELEGRAM_TOKEN")
+    if not token:
+        token = st.secrets.get("TELEGRAM_TOKEN")
+    
+    if not token:
+        return "❌ Token Gak Onok!"
+
+    def runner():
+        # [FIX]: llm_service kudu diinisiasi nang kene maneh amarga beda thread
+        llm_srv = LLMService("Groq Llama 3") 
         
-db = get_db_manager()
+        # Kirim instance database sing wis aman digawe
+        bot = TelegramBot(token, llm_srv, db_manager_instance) # <<< NGGUNAKAKE db_manager_instance
+        
+        # Jalanno Bot
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(bot.run())
+        except Exception as e:
+            print(f"FATAL BOT THREAD ERROR: {e}")
+
+    # Gawe Thread
+    t = threading.Thread(target=runner, daemon=True)
+    t.start()
+    
+    return "✅ Bot Telegram Berjalan di Background!"
+
+# [FIX]: Panggil fungsi iki nggawe instance database sing wis digawe nang nduwur
+status_bot = start_bot_background(db)
 
 
 def start_bot_background():
