@@ -12,31 +12,48 @@ import os
 load_dotenv()
 
 # ==========================================
-# 🤖 BACKGROUND BOT RUNNER
+# 🧠 INISIALISASI DATABASE (Wajib Paling Awal)
+# ==========================================
+# [FIX]: Nggawe instance DB nang kene (mung dijalanno sepisan)
+@st.cache_resource
+def get_db_manager():
+    # Gunakno os.environ.get ben aman nang thread
+    try:
+        db_instance = DatabaseManager(st_secrets=st.secrets, os_getenv_func=os.environ.get)
+        db_instance.get_all_products() # Tes koneksi
+        return db_instance
+    except Exception as e:
+        st.error(f"❌ Gagal konek DB. Cek Secrets/Koneksi: {e}")
+        st.stop()
+        
+db = get_db_manager() # Iki instance Database sing dinggo kabeh Dashboard
+
+# ==========================================
+# 🤖 BACKGROUND BOT RUNNER (SINGLE FUNCTIION)
 # ==========================================
 @st.cache_resource
-def start_bot_background(db_manager_instance): # <<< TAMBAHI PARAMETER DB MANAGER
+def start_bot_background(db_manager_instance):
     """
-    Fungsi iki mung dijalanno SEPISAN pas aplikasi start.
+    Fungsi iki dijalanno SEPISAN tok, nggawe thread khusus nggo Bot.
     """
     token = os.getenv("TELEGRAM_TOKEN")
     if not token:
         token = st.secrets.get("TELEGRAM_TOKEN")
     
     if not token:
-        return "❌ Token Gak Onok!"
+        return "❌ Token TELEGRAM Gak Onok!"
 
     def runner():
-        # [FIX]: llm_service kudu diinisiasi nang kene maneh amarga beda thread
         llm_srv = LLMService("Groq Llama 3") 
         
-        # Kirim instance database sing wis aman digawe
-        bot = TelegramBot(token, llm_srv, db_manager_instance) # <<< NGGUNAKAKE db_manager_instance
+        # Kirim instance database sing wis aman digawe nang get_db_manager
+        bot = TelegramBot(token, llm_srv, db_manager_instance) 
         
-        # Jalanno Bot
+        # Jalanno Bot nang Event Loop dewe
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
+            # Gunakno loop.run_until_complete() kanggo fungsi async bot.run()
             loop.run_until_complete(bot.run())
         except Exception as e:
             print(f"FATAL BOT THREAD ERROR: {e}")
@@ -47,47 +64,9 @@ def start_bot_background(db_manager_instance): # <<< TAMBAHI PARAMETER DB MANAGE
     
     return "✅ Bot Telegram Berjalan di Background!"
 
-# [FIX]: Panggil fungsi iki nggawe instance database sing wis digawe nang nduwur
+# Panggil fungsi iki nggawe instance database sing wis digawe
 status_bot = start_bot_background(db)
 
-
-def start_bot_background():
-    """
-    Fungsi iki mung dijalanno SEPISAN pas aplikasi start.
-    De'e bakal nggawe jalur anyar (Thread) khusus kanggo Bot Telegram.
-    """
-    # 1. Cek Token
-    token = os.getenv("TELEGRAM_TOKEN")
-    if not token:
-        # Fallback nek nggawe Secrets Streamlit Cloud
-        token = st.secrets.get("TELEGRAM_TOKEN")
-    
-    if not token:
-        return "❌ Token Gak Onok!"
-
-    # 2. Siapno Bot
-    def runner():
-        # Pilih Model Default (Groq)
-        token = os.getenv("TELEGRAM_TOKEN")
-        llm_srv = LLMService("Groq Llama 3") 
-        bot = TelegramBot(token, llm_srv, db_manager_thread)
-
-        db_manager_thread = DatabaseManager(os_getenv_func=os.environ.get)
-        
-        # Jalanno Bot (Looping Selawase)
-        # Nggawe loop anyar ben gak tabrakan karo Streamlit
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(bot.run()) # Iki bakal blocking, tapi aman soale nang thread dewe
-
-    # 3. Gawe Thread (Jalur Khusus)
-    t = threading.Thread(target=runner, daemon=True)
-    t.start()
-    
-    return "✅ Bot Telegram Berjalan di Background!"
-
-# Jalankan Bot Otomatis pas file iki dibukak
-status_bot = start_bot_background()
 
 # ==========================================
 # 🖥️ ADMIN DASHBOARD (UI)
@@ -100,7 +79,6 @@ class AdminDashboard:
         with st.sidebar:
             st.header("🖨️ Spectrum Admin")
             
-            # Indikator Status Bot
             if "Berjalan" in status_bot:
                 st.success(status_bot)
             else:
@@ -113,11 +91,11 @@ class AdminDashboard:
 
     def render_orders_tab(self):
         st.subheader("📦 Manajemen Order")
-        res = db.get_all_orders()
+        res = db.get_all_orders() # Gunakno instance db
         
         if res.data:
             df = pd.DataFrame(res.data)
-            st.dataframe(df) # Wis aman tanpa warning
+            st.dataframe(df)
             
             st.divider()
             c1, c2, c3 = st.columns(3)
@@ -137,7 +115,7 @@ class AdminDashboard:
 
     def render_products_tab(self):
         st.subheader("🏷️ Katalog Produk")
-        res = db.get_all_products()
+        res = db.get_all_products() # Gunakno instance db
         if res.data: st.dataframe(pd.DataFrame(res.data))
         
         with st.expander("Tambah Produk"):
@@ -153,7 +131,7 @@ class AdminDashboard:
 
     def render_faq_tab(self):
         st.subheader("❓ FAQ Toko")
-        res = db.get_all_faq()
+        res = db.get_all_faq() # Gunakno instance db
         if res.data: st.dataframe(pd.DataFrame(res.data))
         
         with st.expander("Tambah FAQ"):
