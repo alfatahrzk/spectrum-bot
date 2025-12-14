@@ -5,13 +5,15 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 from langchain_core.messages import AIMessage, HumanMessage
 from llm_service import LLMService
+from database import DatabaseManager 
 
 class TelegramBot:
     """Mengelola Lifecycle Bot Telegram."""
     
-    def __init__(self, token, llm_service: LLMService):
+    def __init__(self, token, llm_service: LLMService, db_manager: DatabaseManager): 
         self.token = token
         self.llm_service = llm_service
+        self.db_manager = db_manager # Simpen database instance
         self.user_sessions = {}
 
     async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -28,8 +30,8 @@ class TelegramBot:
 
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         
-        # Init Agent
-        agent = self.llm_service.get_executor()
+        agent = self.llm_service.get_executor(self.db_manager) 
+        
         history = self.user_sessions[chat_id]
         history.append(HumanMessage(content=text))
         
@@ -48,7 +50,6 @@ class TelegramBot:
             await update.message.reply_text("⚠️ Ada gangguan sistem. Silakan coba lagi.")
 
     async def run(self):
-        """Menjalankan Polling."""
         app = ApplicationBuilder().token(self.token).build()
         app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), self._handle_message))
         nest_asyncio.apply()
@@ -60,3 +61,28 @@ class TelegramBot:
         await app.updater.start_polling(drop_pending_updates=True)
         
         while True: await asyncio.sleep(3600)
+
+if __name__ == "__main__":
+    import os
+    from dotenv import load_dotenv
+    from llm_service import LLMService
+    from database import DatabaseManager
+    
+    load_dotenv()
+    
+    print("🤖 Menyalakan SpectrumBot System...")
+    
+    token = os.getenv("TELEGRAM_TOKEN")
+    
+    try:
+        db_instance = DatabaseManager()
+    except Exception as e:
+        print(f"❌ Gagal konek database: {e}")
+        exit()
+        
+    # Inisialisasi Service
+    llm_service = LLMService("Groq Llama 3") 
+    bot = TelegramBot(token, llm_service, db_instance) # Kirim instance database!
+    
+    # Gas Pol!
+    asyncio.run(bot.run())

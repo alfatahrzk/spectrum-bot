@@ -31,6 +31,9 @@ class LLMService:
             )
 
     def get_executor(self):
+
+        set_global_db(db_manager_instance)
+        
         llm = self._get_llm()
         
         prompt = ChatPromptTemplate.from_messages([

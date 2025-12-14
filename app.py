@@ -45,14 +45,17 @@ def start_bot_background():
     # 2. Siapno Bot
     def runner():
         # Pilih Model Default (Groq)
+        token = os.getenv("TELEGRAM_TOKEN")
         llm_srv = LLMService("Groq Llama 3") 
-        bot = TelegramBot(token, llm_srv)
+        bot = TelegramBot(token, llm_srv, db_manager_thread)
+
+        db_manager_thread = DatabaseManager(os_getenv_func=os.environ.get)
         
         # Jalanno Bot (Looping Selawase)
         # Nggawe loop anyar ben gak tabrakan karo Streamlit
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        bot.run() # Iki bakal blocking, tapi aman soale nang thread dewe
+        loop.run_until_complete(bot.run()) # Iki bakal blocking, tapi aman soale nang thread dewe
 
     # 3. Gawe Thread (Jalur Khusus)
     t = threading.Thread(target=runner, daemon=True)
