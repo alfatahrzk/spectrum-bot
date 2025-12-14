@@ -16,9 +16,17 @@ load_dotenv()
 # ==========================================
 @st.cache_resource
 def get_db_manager():
-    return DatabaseManager()
-
+    try:
+        # Kirim st.secrets lan os.environ.get dadi parameter
+        db_instance = DatabaseManager(st_secrets=st.secrets, os_getenv_func=os.environ.get)
+        db_instance.get_all_products() 
+        return db_instance
+    except Exception as e:
+        st.error(f"❌ Gagal konek DB: {e}")
+        st.stop()
+        
 db = get_db_manager()
+
 
 def start_bot_background():
     """

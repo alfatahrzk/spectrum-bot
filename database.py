@@ -4,31 +4,54 @@ import os
 from supabase import create_client, Client
 
 class DatabaseManager:
-    """Mengelola semua interaksi dengan Database Supabase."""
+    """Mengelola semua interaksi dengan Database Supabase. 
+    Wajib diinisiasi dengan st_secrets dan os_getenv.
+    """
     
-    def __init__(self):
-        try:
-            # Ganti st.secrets dadi os.getenv
-            self.url = os.getenv("SUPABASE_URL")
-            self.key = os.getenv("SUPABASE_KEY")
-            # Fallback nek os.getenv kosong (misal tetep lewat streamlit cloud)
-            if not self.url: self.url = st.secrets["SUPABASE_URL"]
-            if not self.key: self.key = st.secrets["SUPABASE_KEY"]
-                
-            self.client: Client = create_client(self.url, self.key)
+    def __init__(self, st_secrets=None, os_getenv_func=None):
+        # Menerima data secrets saka luar (app.py)
+        self.st_secrets = st_secrets
+        self.os_getenv_func = os_getenv_func or os.getenv # Fungsi os.getenv utawa os.environ.get
+        
+        # Jupuk Kredensial
+        url, key = self._get_credentials()
+
+        if not url or not key:
+            # PENTING: Aja st.error nang kene ben gak crash nek bot.py sing nyeluk
+            print("❌ GAGAL KONEKSI DB: URL/Key tidak ditemukan di environment/secrets.")
+            raise ConnectionError("Supabase URL/Key tidak ditemukan.")
+
+        self.client: Client = create_client(url, key)
+
+    def _get_credentials(self):
+        """Mencari kredensial dari os.environ dulu, lalu fallback ke st.secrets."""
+        
+        # 1. Coba dari OS ENV (Kanggo Bot.py utawa Streamlit Cloud)
+        url = self.os_getenv_func("SUPABASE_URL")
+        key = self.os_getenv_func("SUPABASE_KEY")
+        
+        # 2. Coba dari Streamlit Secrets (Fallback nek os.getenv kosong)
+        # Nggunakake st_secrets sing dikirim saka app.py
+        if not url and self.st_secrets:
+            url = self.st_secrets.get("SUPABASE_URL")
+            key = self.st_secrets.get("SUPABASE_KEY")
+            
+        return url, key
+
+    # --- (Method CRUD dan Admin di bawah ini tetap sama) ---
 
     def search_products(self, query: str):
         try:
             print(f"🔍 [DB] Searching Product: {query}")
-            
             if query.lower() in ["semua", "produk", "list", "menu"]:
                 result = self.client.table('products').select("*").limit(10).execute()
             else:
                 result = self.client.table('products').select("*").ilike('nama_produk', f'%{query}%').execute()
-            
             return result
         except Exception as e:
             print(f"❌ ERROR DB (Products): {e}") 
+            # Dibalekno None wae ben LLM iso lanjut
+            return None
 
     def get_faq_summary(self):
         try:
@@ -39,6 +62,7 @@ class DatabaseManager:
             return None
 
     def create_order(self, nama, items, detail, total=0):
+        # ... (Logika tetep) ...
         now = datetime.datetime.now()
         nomor_order = f"ORDER-{now.strftime('%y%m%d%H%M%S')}"
         data = {

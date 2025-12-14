@@ -1,7 +1,12 @@
 from langchain_core.tools import tool
-from database import DatabaseManager
 
-db = DatabaseManager()
+GLOBAL_DB_INSTANCE = None 
+
+# Kita ubah cara panggile:
+def set_global_db(db_manager):
+    """Fungsi iki dipanggil sepisan tok nang llm_service.py"""
+    global GLOBAL_DB_INSTANCE
+    GLOBAL_DB_INSTANCE = db_manager
 
 @tool
 def cari_produk(query: str):
