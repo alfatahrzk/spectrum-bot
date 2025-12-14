@@ -62,7 +62,7 @@ class LLMService:
               - Tanyakan: "Ada tambahan lain, Kak?"
            4. Jika tanya INFO UMUM (Jam buka, Lokasi, File, Rekening) -> Gunakan 'cari_info_umum'.
         
-        PHASE 2: SAAT USER BILANG SETUJU / "GASS" / DEAL
+        PHASE 2 PENTING: SAAT USER BILANG SETUJU / "GASS" / DEAL
            1. CEK DULU: Apakah user sudah menyebutkan namanya di chat sebelumnya?
            2. JIKA NAMA BELUM DIKETAHUI:
               - JANGAN panggil tool 'buat_pesanan'.
