@@ -20,7 +20,7 @@ class LLMService:
         # Nggawe agent ZeroShot, dadi kita butuh LLM ChatGroq
         return ChatGroq(
             temperature=0, 
-            model_name="llama-3.1-8b-instant", # Ganti menyang 8B sing luwih irit
+            model_name="meta-llama/llama-4-scout-17b-16e-instruct", # Ganti menyang 8B sing luwih irit
             groq_api_key=self.groq_key
         )
 
