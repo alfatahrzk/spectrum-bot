@@ -16,13 +16,12 @@ class LLMService:
         self.groq_key = os.getenv("GROQ_API_KEY")
 
     def _get_llm(self):
-        # [KUNCI STABILITAS]: Kita prioritize Gemini Flash (lebih stabil utk tool calling Langchain)
-        # Nggawe Gemini Flash dadi default (meskipun model_choice Groq)
-        return ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            temperature=0,
-            google_api_key=self.google_key,
-            safety_settings={HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE}
+        # [FIX]: Nggunakake LLAMA 3 8B (luwih irit lan cepet)
+        # Nggawe agent ZeroShot, dadi kita butuh LLM ChatGroq
+        return ChatGroq(
+            temperature=0, 
+            model_name="llama-3.1-8b-instant", # Ganti menyang 8B sing luwih irit
+            groq_api_key=self.groq_key
         )
 
     # [FIX]: Agent sing paling stabil nggawe Gemini
