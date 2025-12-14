@@ -1,49 +1,90 @@
 import streamlit as st
 import pandas as pd
 import asyncio
-from database import db  # Import Database
-from llm_service import LLMService # Import LLM
-from bot import TelegramBot # Import Bot Class
+import threading
+from database import db
+from dotenv import load_dotenv
+from llm_service import LLMService
+from bot import TelegramBot
+import os
 
-class AdminDashboard:
-    """Mengelola Tampilan Web Admin."""
+# Load env
+load_dotenv()
+
+# ==========================================
+# 🤖 BACKGROUND BOT RUNNER
+# ==========================================
+@st.cache_resource
+def start_bot_background():
+    """
+    Fungsi iki mung dijalanno SEPISAN pas aplikasi start.
+    De'e bakal nggawe jalur anyar (Thread) khusus kanggo Bot Telegram.
+    """
+    # 1. Cek Token
+    token = os.getenv("TELEGRAM_TOKEN")
+    if not token:
+        # Fallback nek nggawe Secrets Streamlit Cloud
+        token = st.secrets.get("TELEGRAM_TOKEN")
     
+    if not token:
+        return "❌ Token Gak Onok!"
+
+    # 2. Siapno Bot
+    def runner():
+        # Pilih Model Default (Groq)
+        llm_srv = LLMService("Groq Llama 3") 
+        bot = TelegramBot(token, llm_srv)
+        
+        # Jalanno Bot (Looping Selawase)
+        # Nggawe loop anyar ben gak tabrakan karo Streamlit
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        bot.run() # Iki bakal blocking, tapi aman soale nang thread dewe
+
+    # 3. Gawe Thread (Jalur Khusus)
+    t = threading.Thread(target=runner, daemon=True)
+    t.start()
+    
+    return "✅ Bot Telegram Berjalan di Background!"
+
+# Jalankan Bot Otomatis pas file iki dibukak
+status_bot = start_bot_background()
+
+# ==========================================
+# 🖥️ ADMIN DASHBOARD (UI)
+# ==========================================
+class AdminDashboard:
     def __init__(self):
         st.set_page_config(page_title="Spectrum Admin", layout="wide", page_icon="🖨️")
         
     def render_sidebar(self):
         with st.sidebar:
-            st.header("🤖 Control Panel")
-            model = st.selectbox("Model AI:", ("Groq Llama 3", "Google Gemini Flash"))
+            st.header("🖨️ Spectrum Admin")
             
-            if st.button("▶️ START BOT", type="primary"):
-                st.success(f"Menjalankan bot dengan {model}...")
-                
-                # Dependency Injection
-                llm_srv = LLMService(model)
-                bot = TelegramBot(st.secrets["TELEGRAM_TOKEN"], llm_srv)
-                
-                with st.spinner("Bot aktif... Cek terminal untuk logs."):
-                    asyncio.run(bot.run())
+            # Indikator Status Bot
+            if "Berjalan" in status_bot:
+                st.success(status_bot)
+            else:
+                st.error(status_bot)
+            
+            st.info("Bot mlaku otomatis. Sampeyan fokus ngatur data wae nang kene.")
+            
+            if st.button("🔄 Refresh Data"):
+                st.rerun()
 
     def render_orders_tab(self):
         st.subheader("📦 Manajemen Order")
-        if st.button("🔄 Refresh"): st.rerun()
-        
         res = db.get_all_orders()
+        
         if res.data:
             df = pd.DataFrame(res.data)
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df) # Wis aman tanpa warning
             
             st.divider()
             c1, c2, c3 = st.columns(3)
             with c1:
-                # Handle error nek data kosong
                 list_order = df['nomor_order'].tolist() if not df.empty else []
-                if list_order:
-                    oid = st.selectbox("Pilih Order:", list_order)
-                else: oid = None
-                
+                oid = st.selectbox("Pilih Order:", list_order) if list_order else None
             with c2:
                 stat = st.selectbox("Status Baru:", ["Lunas", "Proses Cetak", "Selesai", "Diambil", "Batal"])
             with c3:
@@ -53,12 +94,12 @@ class AdminDashboard:
                     st.success("Status Updated!")
                     st.rerun()
         else:
-            st.info("Data kosong.")
+            st.info("Belum ada orderan masuk.")
 
     def render_products_tab(self):
         st.subheader("🏷️ Katalog Produk")
         res = db.get_all_products()
-        if res.data: st.dataframe(pd.DataFrame(res.data), use_container_width=True)
+        if res.data: st.dataframe(pd.DataFrame(res.data))
         
         with st.expander("Tambah Produk"):
             with st.form("add_prod"):
@@ -74,7 +115,7 @@ class AdminDashboard:
     def render_faq_tab(self):
         st.subheader("❓ FAQ Toko")
         res = db.get_all_faq()
-        if res.data: st.dataframe(pd.DataFrame(res.data), use_container_width=True)
+        if res.data: st.dataframe(pd.DataFrame(res.data))
         
         with st.expander("Tambah FAQ"):
             with st.form("add_faq"):

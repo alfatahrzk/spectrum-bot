@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI, HarmBlockThreshold, HarmCategory
 from langchain.agents import AgentExecutor, create_tool_calling_agent
@@ -7,11 +8,12 @@ from tools import bot_tools
 
 class LLMService:
     """Mengelola Model AI (Groq/Gemini) dan Agent."""
-    
+
     def __init__(self, model_choice):
         self.model_choice = model_choice
-        self.google_key = st.secrets["GOOGLE_API_KEY"]
-        self.groq_key = st.secrets["GROQ_API_KEY"]
+        # Ganti st.secrets dadi os.getenv
+        self.google_key = os.getenv("GOOGLE_API_KEY")
+        self.groq_key = os.getenv("GROQ_API_KEY")
 
     def _get_llm(self):
         if self.model_choice == "Google Gemini Flash":

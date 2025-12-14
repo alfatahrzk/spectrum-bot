@@ -1,5 +1,6 @@
 import streamlit as st
 import datetime
+import os
 from supabase import create_client, Client
 
 class DatabaseManager:
@@ -7,13 +8,14 @@ class DatabaseManager:
     
     def __init__(self):
         try:
-            # Pastikno secrets tetep ana nang .streamlit/secrets.toml
-            self.url = st.secrets["SUPABASE_URL"]
-            self.key = st.secrets["SUPABASE_KEY"]
+            # Ganti st.secrets dadi os.getenv
+            self.url = os.getenv("SUPABASE_URL")
+            self.key = os.getenv("SUPABASE_KEY")
+            # Fallback nek os.getenv kosong (misal tetep lewat streamlit cloud)
+            if not self.url: self.url = st.secrets["SUPABASE_URL"]
+            if not self.key: self.key = st.secrets["SUPABASE_KEY"]
+                
             self.client: Client = create_client(self.url, self.key)
-        except Exception as e:
-            st.error(f"❌ Database Connection Error: {e}")
-            st.stop()
 
     def search_products(self, query: str):
         try:
