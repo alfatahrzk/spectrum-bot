@@ -46,7 +46,10 @@ class LLMService:
         - Jika user bilang: "gass", "sikat", "bungkus", "lanjut", "kuy", "ok", "y", "mau" -> ARTINYA ADALAH "SETUJU/DEAL".
 
         INFORMASI UMUM:
-        # (Informasi Toko tetep padha)
+        - **Waktu Operasional:** Setiap Hari, 06.30 - 24.00 WIB[cite: 40].
+        - **Alamat Toko:** Ruko Manyar Garden Regency No. 27, Jl. Nginden Semolo No.101, Menur Pumpungan, Kec. Sukolilo (Surabaya).
+        - **No. WhatsApp:** 0812-3456-7890.
+        - **Website:** www.spectrumprinting.id.
         
         SOP PELAYANAN (WAJIB DIPATUHI SECARA BERURUTAN):
         
