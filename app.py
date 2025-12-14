@@ -8,17 +8,20 @@ from llm_service import LLMService
 from bot import TelegramBot
 import os
 
-# Load env
+# Load env variables (kanggo lokal)
 load_dotenv()
 
 # ==========================================
 # 🧠 INISIALISASI DATABASE (Wajib Paling Awal)
 # ==========================================
-# [FIX]: Nggawe instance DB nang kene (mung dijalanno sepisan)
 @st.cache_resource
 def get_db_manager():
-    # Gunakno os.environ.get ben aman nang thread
+    """
+    Inisialisasi Database Manager sepisan tok.
+    Ngawe os.environ.get ben aman nang thread.
+    """
     try:
+        # Ngirim st.secrets lan os.environ.get menyang __init__ DatabaseManager
         db_instance = DatabaseManager(st_secrets=st.secrets, os_getenv_func=os.environ.get)
         db_instance.get_all_products() # Tes koneksi
         return db_instance
@@ -26,16 +29,20 @@ def get_db_manager():
         st.error(f"❌ Gagal konek DB. Cek Secrets/Koneksi: {e}")
         st.stop()
         
-db = get_db_manager() # Iki instance Database sing dinggo kabeh Dashboard
+# Instance DB sing dinggo kabeh Dashboard
+db = get_db_manager() 
 
 # ==========================================
-# 🤖 BACKGROUND BOT RUNNER (SINGLE FUNCTIION)
+# 🤖 BACKGROUND BOT RUNNER (Final Version)
 # ==========================================
 @st.cache_resource
-def start_bot_background(db_manager_instance):
+def start_bot_background():
     """
-    Fungsi iki dijalanno SEPISAN tok, nggawe thread khusus nggo Bot.
+    Njalanno Bot Telegram nang Thread terpisah.
+    Fungsi iki ora nampa parameter ben Streamlit ora error Caching.
+    De'e bakal nggunakake variabel global 'db'.
     """
+    # 1. Cek Token
     token = os.getenv("TELEGRAM_TOKEN")
     if not token:
         token = st.secrets.get("TELEGRAM_TOKEN")
@@ -44,28 +51,32 @@ def start_bot_background(db_manager_instance):
         return "❌ Token TELEGRAM Gak Onok!"
 
     def runner():
+        # Jupuk instance DB global
+        global db 
+        
         llm_srv = LLMService("Groq Llama 3") 
         
-        # Kirim instance database sing wis aman digawe nang get_db_manager
-        bot = TelegramBot(token, llm_srv, db_manager_instance) 
+        # Kirim instance database global 'db' menyang Bot
+        # Iki ngatasi masalah UnhashableParamError
+        bot = TelegramBot(token, llm_srv, db) 
         
         # Jalanno Bot nang Event Loop dewe
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            # Gunakno loop.run_until_complete() kanggo fungsi async bot.run()
+            # Panggil run nggawe loop.run_until_complete()
             loop.run_until_complete(bot.run())
         except Exception as e:
             print(f"FATAL BOT THREAD ERROR: {e}")
 
-    # Gawe Thread
+    # Gawe Thread (jalur)
     t = threading.Thread(target=runner, daemon=True)
     t.start()
     
     return "✅ Bot Telegram Berjalan di Background!"
 
-# Panggil fungsi iki nggawe instance database sing wis digawe
-status_bot = start_bot_background(db)
+# Jalankan Bot Otomatis
+status_bot = start_bot_background()
 
 
 # ==========================================
@@ -79,6 +90,7 @@ class AdminDashboard:
         with st.sidebar:
             st.header("🖨️ Spectrum Admin")
             
+            # Indikator Status Bot
             if "Berjalan" in status_bot:
                 st.success(status_bot)
             else:
@@ -91,7 +103,7 @@ class AdminDashboard:
 
     def render_orders_tab(self):
         st.subheader("📦 Manajemen Order")
-        res = db.get_all_orders() # Gunakno instance db
+        res = db.get_all_orders()
         
         if res.data:
             df = pd.DataFrame(res.data)
@@ -115,7 +127,7 @@ class AdminDashboard:
 
     def render_products_tab(self):
         st.subheader("🏷️ Katalog Produk")
-        res = db.get_all_products() # Gunakno instance db
+        res = db.get_all_products()
         if res.data: st.dataframe(pd.DataFrame(res.data))
         
         with st.expander("Tambah Produk"):
@@ -131,7 +143,7 @@ class AdminDashboard:
 
     def render_faq_tab(self):
         st.subheader("❓ FAQ Toko")
-        res = db.get_all_faq() # Gunakno instance db
+        res = db.get_all_faq()
         if res.data: st.dataframe(pd.DataFrame(res.data))
         
         with st.expander("Tambah FAQ"):
