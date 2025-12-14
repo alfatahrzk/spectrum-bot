@@ -1,5 +1,7 @@
 from langchain_core.tools import tool
-from database import db
+from database import DatabaseManager
+
+db = DatabaseManager()
 
 @tool
 def cari_produk(query: str):
@@ -50,6 +52,6 @@ def cek_status_order(nomor_order: str):
     o = res.data[0]
     return f"Status {o['nomor_order']}: {o['status_order']}."
 
-    
+
 # Export list tools
 bot_tools = [cari_produk, cek_status_order, buat_pesanan, cari_info_umum]

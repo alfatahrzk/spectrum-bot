@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import asyncio
 import threading
-from database import db
+from database import DatabaseManager
 from dotenv import load_dotenv
 from llm_service import LLMService
 from bot import TelegramBot
@@ -15,6 +15,11 @@ load_dotenv()
 # 🤖 BACKGROUND BOT RUNNER
 # ==========================================
 @st.cache_resource
+def get_db_manager():
+    return DatabaseManager()
+
+db = get_db_manager()
+
 def start_bot_background():
     """
     Fungsi iki mung dijalanno SEPISAN pas aplikasi start.

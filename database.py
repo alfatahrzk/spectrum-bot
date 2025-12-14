@@ -76,6 +76,3 @@ class DatabaseManager:
 
     def get_all_faq(self):
         return self.client.table('faq').select("*").order('id', desc=True).execute()
-
-# Create Instance Global biar bisa dipanggil di file lain
-db = DatabaseManager()
