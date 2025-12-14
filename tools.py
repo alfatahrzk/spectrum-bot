@@ -47,12 +47,19 @@ def cari_info_umum(query: str):
     return text
 
 @tool
-def buat_pesanan(nama_pelanggan: str, item: str, detail: str):
-    """Gunakan HANYA jika user sudah DEAL dan menyebutkan NAMA."""
-    # [FIX] Ganti db.create_order dadi GLOBAL_DB_INSTANCE.create_order
-    nomor = GLOBAL_DB_INSTANCE.create_order(nama_pelanggan, item, detail)
+def buat_pesanan(nama_pelanggan: str, item: str, detail: str, total_biaya: float):
+    """
+    Gunakan HANYA jika user sudah DEAL dan menyebutkan NAMA.
+    WAJIB masukkan TOTAL_BIAYA yang sudah dihitung sebelumnya!
+    """
+    # [FIX]: Kirim total_biaya menyang db.create_order
+    nomor = GLOBAL_DB_INSTANCE.create_order(nama_pelanggan, item, detail, total=total_biaya) 
+    
+    # Format harga kanggo balasan
+    harga_format = "{:,.0f}".format(total_biaya).replace(',', '.')
+
     if nomor:
-        return f"✅ Sukses! Order ID: {nomor}. Atas nama {nama_pelanggan}. Silakan transfer ke BCA 123456."
+        return f"✅ Sukses! Order ID: {nomor}. Atas nama {nama_pelanggan}. Total biaya: Rp{harga_format}. Silakan transfer ke BCA 123456."
     return "Gagal membuat pesanan. Coba lagi."
 
 @tool

@@ -61,15 +61,15 @@ class DatabaseManager:
             print(f"❌ ERROR DB (FAQ): {e}")
             return None
 
-    def create_order(self, nama, items, detail, total=0):
-        # ... (Logika tetep) ...
+    def create_order(self, nama, items, detail, total=0): 
         now = datetime.datetime.now()
         nomor_order = f"ORDER-{now.strftime('%y%m%d%H%M%S')}"
         data = {
             "nomor_order": nomor_order,
             "nama_pelanggan": nama,
             "status_order": "Menunggu Pembayaran",
-            "total_biaya": total,
+            # [FIX]: Mbutuhake total sing dikirim saka Tool
+            "total_biaya": total, 
             "detail_items": f"{items} ({detail})"
         }
         try:
