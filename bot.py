@@ -2,66 +2,76 @@ import asyncio
 import nest_asyncio
 import traceback
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters, CommandHandler
 from langchain_core.messages import AIMessage, HumanMessage
 from llm_service import LLMService
 from database import DatabaseManager 
 
 class TelegramBot:
-    """Mengelola Lifecycle Bot Telegram."""
-    
     def __init__(self, token, llm_service: LLMService, db_manager: DatabaseManager): 
         self.token = token
         self.llm_service = llm_service
-        self.db_manager = db_manager # Simpen database instance
+        self.db_manager = db_manager
         self.user_sessions = {}
+
+    async def _reset_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Fungsi khusus nggo nanganin /reset"""
+        chat_id = update.effective_chat.id
+        self.user_sessions[chat_id] = []
+        await update.message.reply_text("🧠 Memori Reset. SpectrumBot siap mulai dari awal, Kak!")
 
     async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
         chat_id = update.effective_chat.id
         
-        print(f"📩 Pesan dari {chat_id}: {text}")
-        
-        if chat_id not in self.user_sessions: self.user_sessions[chat_id] = []
-        if text == "/reset":
+        # 1. Inisialisasi session nek durung onok
+        if chat_id not in self.user_sessions: 
             self.user_sessions[chat_id] = []
-            await update.message.reply_text("🧠 Memori Reset.")
-            return
-
+        
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         
+        # 2. Jupuk executor (Agent)
         agent = self.llm_service.get_executor(self.db_manager) 
         
+        # 3. Kelola History (Limit dadi 10 pesen terakhir)
         history = self.user_sessions[chat_id]
-        history.append(HumanMessage(content=text))
+        if len(history) > 10:
+            history = history[-10:] # Njaga supaya gak over-token
         
         try:
+            # 4. Celuk AI
             response = await agent.ainvoke({"input": text, "chat_history": history})
-            reply = response["output"] or "Maaf, respon kosong."
+            reply = response.get("output", "Waduh Kak, aku bingung mau jawab apa. Bisa diulangi?")
             
-            history.append(AIMessage(content=reply))
+            # 5. Update Memory
+            self.user_sessions[chat_id].append(HumanMessage(content=text))
+            self.user_sessions[chat_id].append(AIMessage(content=reply))
+            
             await update.message.reply_text(reply)
-            print(f"📤 Balasan: {reply}")
             
         except Exception as e:
-            err_msg = f"Error: {e}"
-            print(err_msg)
-            traceback.print_exc()
-            await update.message.reply_text("⚠️ Ada gangguan sistem. Silakan coba lagi.")
+            print(f"ERROR: {e}")
+            await update.message.reply_text("⚠️ Maaf Kak, sistem Spectrum lagi sibuk sebentar. Coba lagi ya!")
 
     async def run(self):
         app = ApplicationBuilder().token(self.token).build()
-        app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), self._handle_message))
-        nest_asyncio.apply()
         
-        print("🔄 Inisialisasi Bot...")
+        # Tambahno CommandHandler dhisik
+        app.add_handler(CommandHandler("reset", self._reset_handler))
+        # MessageHandler nampung teks biasa (dudu command)
+        app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), self._handle_message))
+        
+        # Iki cara sing luwih rapi nggo njaga bot tetep urip
+        print("🚀 SpectrumBot Is Online...")
         await app.initialize()
         await app.start()
-        print("🚀 Bot Polling Started...")
         await app.updater.start_polling(drop_pending_updates=True)
         
-        while True: await asyncio.sleep(3600)
+        # Stop signal (njaga script gak langsung nutup)
+        stop_event = asyncio.Event()
+        await stop_event.wait()
 
+        
 if __name__ == "__main__":
     import os
     from dotenv import load_dotenv
