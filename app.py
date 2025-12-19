@@ -2,126 +2,177 @@ import streamlit as st
 import pandas as pd
 import asyncio
 import threading
+import os
 from database import DatabaseManager
-from dotenv import load_dotenv
 from llm_service import LLMService
 from bot import TelegramBot
-import os
+from dotenv import load_dotenv
 
-# Load env variables (kanggo lokal)
+# 1. LOAD CONFIGURATION
 load_dotenv()
 
+# WAJIB: set_page_config kudu dadi perintah Streamlit sing pertama dhiwene
+st.set_page_config(
+    page_title="Spectrum Admin Dashboard", 
+    layout="wide", 
+    page_icon="🖨️"
+)
+
 # ==========================================
-# 🧠 INISIALISASI DATABASE (Wajib Paling Awal)
+# 🧠 DATABASE INITIALIZATION (Cached)
 # ==========================================
 @st.cache_resource
 def get_db_manager():
-    """
-    Inisialisasi Database Manager sepisan tok.
-    Ngawe os.environ.get ben aman nang thread.
-    """
+    """Inisialisasi koneksi Supabase sepisan tok."""
     try:
-        # Ngirim st.secrets lan os.environ.get menyang __init__ DatabaseManager
-        db_instance = DatabaseManager(st_secrets=st.secrets, os_getenv_func=os.environ.get)
-        db_instance.get_all_products() # Tes koneksi
+        # Ngirim secrets saka Streamlit Cloud dashboard menyang class DatabaseManager
+        db_instance = DatabaseManager(
+            st_secrets=st.secrets, 
+            os_getenv_func=os.environ.get
+        )
         return db_instance
     except Exception as e:
-        st.error(f"❌ Gagal konek DB. Cek Secrets/Koneksi: {e}")
-        st.stop()
-        
-# Instance DB sing dinggo kabeh Dashboard
-db = get_db_manager() 
+        # Aja st.stop() nang kene supaya dashboard tetep kebuka senajan DB error
+        return None
+
+db = get_db_manager()
 
 # ==========================================
-# 🤖 BACKGROUND BOT RUNNER (Final Version)
+# 🤖 BOT RUNNER (Background Thread)
 # ==========================================
 @st.cache_resource
 def start_bot_background():
-    """
-    Njalanno Bot Telegram nang Thread terpisah.
-    Fungsi iki ora nampa parameter ben Streamlit ora error Caching.
-    De'e bakal nggunakake variabel global 'db'.
-    """
-    # 1. Cek Token
-    token = os.getenv("TELEGRAM_TOKEN")
-    if not token:
-        token = st.secrets.get("TELEGRAM_TOKEN")
+    """Njalanno Bot Telegram nang jalur (thread) liyane."""
+    token = st.secrets.get("TELEGRAM_TOKEN") or os.getenv("TELEGRAM_TOKEN")
     
     if not token:
-        return "❌ Token TELEGRAM Gak Onok!"
+        return "❌ Token TELEGRAM_TOKEN ora ditemokake ing Secrets!"
 
     def runner():
-        # Jupuk instance DB global
-        global db 
-        
+        global db
+        # Gunakake model Llama 3 sing pinter (70B) kanggo Lead Qualifier
         llm_srv = LLMService("Groq Llama 3") 
         
-        # Kirim instance database global 'db' menyang Bot
-        # Iki ngatasi masalah UnhashableParamError
+        # Inisialisasi Bot kanthi nggawa instance database
         bot = TelegramBot(token, llm_srv, db) 
         
-        # Jalanno Bot nang Event Loop dewe
+        # Gawe loop anyar khusus kanggo thread iki
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            # Panggil run nggawe loop.run_until_complete()
             loop.run_until_complete(bot.run())
         except Exception as e:
-            print(f"FATAL BOT THREAD ERROR: {e}")
+            print(f"BOT ERROR: {e}")
 
-    # Gawe Thread (jalur)
+    # Start thread
     t = threading.Thread(target=runner, daemon=True)
     t.start()
-    
-    return "✅ Bot Telegram Berjalan di Background!"
+    return "✅ Bot Telegram Aktif (Background)"
 
-# Jalankan Bot Otomatis
+# Jalankan Bot otomatis
 status_bot = start_bot_background()
 
 # ==========================================
-# 🖥️ ADMIN DASHBOARD (UI)
+# 🖥️ ADMIN DASHBOARD CLASS
 # ==========================================
 class AdminDashboard:
     def __init__(self):
-        # [FIX] Mindahno config menyang paling dhuwur
-        st.set_page_config(page_title="Spectrum Admin", layout="wide", page_icon="🖨️")
+        self.db = db
 
-    # ... (render_sidebar lan render_orders tetep) ...
+    def render_sidebar(self):
+        with st.sidebar:
+            st.title("🖨️ Spectrum Printing")
+            st.divider()
+            
+            # Status Indikator
+            if status_bot and "✅" in status_bot:
+                st.success(status_bot)
+            else:
+                st.error(status_bot or "❌ Bot mati/error")
+            
+            st.info("Bot otomatis dadi Lead Qualifier lan Konsultan Teknis (RAG).")
+            
+            if st.button("🔄 Refresh Data"):
+                st.rerun()
 
-    def render_products_tab(self):
-        st.subheader("🏷️ Manajemen Katalog Produk")
-        st.info("Data ing kene bakal digunakake Bot kanggo mangsuli pitakon rega (Tool: cari_produk).")
-        res = db.get_all_products()
-        if res.data: 
+    def render_orders_tab(self):
+        st.header("📦 Manajemen Pesanan")
+        if not self.db:
+            st.warning("Database ora nyambung. Cek konfigurasi.")
+            return
+
+        res = self.db.get_all_orders()
+        if res and res.data:
             df = pd.DataFrame(res.data)
             st.dataframe(df, use_container_width=True)
+            
+            st.divider()
+            col1, col2 = st.columns(2)
+            with col1:
+                order_id = st.selectbox("Pilih No. Order:", df['nomor_order'].tolist())
+            with col2:
+                new_status = st.selectbox("Update Status:", ["Proses", "Selesai", "Batal"])
+                if st.button("Update Status"):
+                    self.db.update_order_status(order_id, new_status)
+                    st.success(f"Order {order_id} diupdate dadi {new_status}")
+                    st.rerun()
+        else:
+            st.info("Durung onok data orderan masuk.")
+
+    def render_products_tab(self):
+        st.header("🏷️ Katalog Produk")
+        if not self.db: return
+
+        res = self.db.get_all_products()
+        if res and res.data:
+            st.dataframe(pd.DataFrame(res.data), use_container_width=True)
         
-        # ... (Form tambah produk tetep) ...
+        with st.expander("➕ Tambah Produk Anyar"):
+            with st.form("form_produk"):
+                nama = st.text_input("Nama Produk")
+                harga = st.number_input("Harga Satuan", min_value=0, step=500)
+                bahan = st.text_input("Jenis Bahan")
+                satuan = st.text_input("Satuan (lbr/meter/pcs)")
+                if st.form_submit_button("Simpan Produk"):
+                    self.db.add_product({
+                        "nama_produk": nama, 
+                        "harga_satuan": harga, 
+                        "bahan": bahan, 
+                        "satuan": satuan
+                    })
+                    st.success("Produk sukses ditambahkan!")
+                    st.rerun()
 
     def render_knowledge_status(self):
-        """Ganti tab FAQ dadi status Knowledge Base Qdrant"""
-        st.subheader("🧠 Status Knowledge Base (RAG)")
-        st.success("✅ Qdrant Cloud Connected: Collection 'spectrum_knowledge'")
-        st.write("""
-        Bot saiki moco data konsultasi (bahan, ukuran, estimasi) saka Qdrant Cloud.
-        Kanggo nganyari data iki, gunakake script `upload_to_qdrant.py`.
+        st.header("🧠 AI Knowledge Base (Qdrant)")
+        st.info("Data ing ngisor iki disimpen nang Vector Database kanggo fitur Konsultasi AI.")
+        
+        st.success("📡 Status: Qdrant Cloud Connected")
+        st.markdown("""
+        **Topik sing dikuasai Bot (RAG):**
+        * **Spek Bahan:** Art Paper, Art Carton, PVC, lsp.
+        * **Ukuran:** A3+, A4, B5, lsp.
+        * **Finishing:** Jilid Hardcover, Softcover, Spiral, lsp.
+        * **Estimasi:** Waktu pengerjaan tiap jenis produk.
         """)
-        if st.button("Lihat Panduan Konsultasi"):
-            st.code("""
-            - Jenis Bahan (Art Paper, PVC, dll)
-            - Ukuran Cetak (A3+, A4, dll)
-            - Estimasi Jilid & Finishing
-            """)
+        
+        st.warning("⚠️ Kanggo update data iki, gunakake script `upload_to_qdrant.py` saka terminal.")
 
     def main(self):
         self.render_sidebar()
-        st.title("🖨️ Spectrum Digital - Professional Dashboard")
-        # Update Tab dadi luwih relevan
-        t1, t2, t3 = st.tabs(["📦 Order Management", "🏷️ Product Catalog", "🧠 Knowledge Status"])
         
-        with t1: self.render_orders_tab()
-        with t2: self.render_products_tab()
-        with t3: self.render_knowledge_status() # Ganti FAQ dadi Status Knowledge
+        st.title("Admin Control Center")
+        tab_order, tab_produk, tab_ai = st.tabs([
+            "📋 Daftar Order", 
+            "🏷️ Katalog Produk", 
+            "🧠 AI Knowledge"
+        ])
+        
+        with tab_order: self.render_orders_tab()
+        with tab_produk: self.render_products_tab()
+        with tab_ai: self.render_knowledge_status()
+
+# 4. EXECUTION
 if __name__ == "__main__":
-    app = AdminDashboard()
-    app.main()
+    dashboard = AdminDashboard()
+    dashboard.main()
