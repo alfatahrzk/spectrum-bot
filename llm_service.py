@@ -26,7 +26,7 @@ class LLMService:
         return ChatGoogleGenerativeAI(
             model="gemini-2.5-flash",
             temperature=0,
-            google_api_key=self.google_api_key
+            google_api_key=self.google_key
         )
 
     def get_executor(self, db_manager_instance): 
