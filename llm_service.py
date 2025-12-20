@@ -11,8 +11,7 @@ class LLMService:
     """Mengelola Model AI (Groq/Gemini) dan Agent."""
 
     def __init__(self, model_choice):
-        # self.model_choice = model_choice
-        self.model_choice = "gemini"
+        self.model_choice = model_choice
         self.google_key = os.getenv("GOOGLE_API_KEY")
         self.groq_key = os.getenv("GROQ_API_KEY")
 
@@ -24,24 +23,11 @@ class LLMService:
     #     )
 
     def _get_llm(self):
-        if self.model_choice == "groq":
-            return ChatGroq(
-                temperature=0, 
-                model_name="meta-llama/llama-4-scout-17b-16e-instruct",
-                groq_api_key=self.groq_key
-            )
-        elif self.model_choice == "gemini":
-            return ChatGoogleGenerativeAI(
-                temperature=0, 
-                model_name="gemini-2.5-flash",
-                api_key=self.google_key,
-                harm_block_threshold=HarmBlockThreshold(
-                    threshold=0.5,
-                    categories=[HarmCategory.HARM_CATEGORY_HATE_SPEECH]
-                )
-            )
-        else:
-            raise ValueError("Model tidak didukung. Pilih 'groq' atau 'gemini'.")
+        return ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash",
+            temperature=0,
+            google_api_key=self.google_api_key
+        )
 
     def get_executor(self, db_manager_instance): 
         
